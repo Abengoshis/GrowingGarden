@@ -16,7 +16,7 @@ public class scrLandscapeGenerator : MonoBehaviour
 	const int xSpacing = 10;	// The regular spacing of points along the x axis. An integer because integers are pretty and simple.
 	const float yHighest = 10.0f;	// The highest value on the y axis that a point can take. The lowest ground value is 0. Below this level, lakes will form..
 
-	const int numIntermediateVertices = 10;	// The number of intermediate vertices between each point. Higher = smoother terrain.
+	const int numIntermediateVertices = 5;	// The number of intermediate vertices between each point. Higher = smoother terrain.
 	const float vertexGap = (float)xSpacing / numIntermediateVertices;	// The x gap between intermediate vertices.
 
 	LinkedList<Vector2> visiblePoints = new LinkedList<Vector2>();	// The currently visible points. This should include the one point before the left of the camera, the one point after the right of the camera, and all points in between.
@@ -252,31 +252,19 @@ public class scrLandscapeGenerator : MonoBehaviour
 	{
 		Debug.Log ("Generating vertices leftwards.");
 
-		// Get an enumerator at the start of the visible points.
-		LinkedList<Vector2>.Enumerator leftPoint = visiblePoints.GetEnumerator();
-		leftPoint.MoveNext();
+		// Get linked list node to firstPoint of visible points
+		// addfirst to vertices, going backwards from firstPoint.previous until there are no more nodes.
 
-		Vector2 left = leftPoint.Current;
-		Vector2 right = firstPoint.Current;
-		
-		// Keep moving the enumerator right until there are no new points.
-		while (leftPoint.Current.x != right.x)
+
+		LinkedListNode<Vector2> firstNode = visiblePoints.Find (firstPoint.Current);
+
+		while (firstNode.Previous != null)
 		{
-			// Advance the enumerator.
-			leftPoint.MoveNext();
+			// Create the intermediate vertices from right to left, with their y calculated from the smoothstep function between the left and right point. Place these vertices at the start of the vertex list.
+			for (int i = numIntermediateVertices - 1; i >= 0; --i)
+				visibleVertices.AddFirst(new Vector2(firstNode.Previous.Value.x + i * vertexGap, Mathf.SmoothStep (firstNode.Previous.Value.y, firstNode.Value.y, (float)i / numIntermediateVertices)));
 
-			// Set the right value to the current point.
-			right = leftPoint.Current;
-
-			// Add the right point.
-			visibleVertices.AddFirst(right);
-
-			// Create the intermediate vertices from left to right, with their y calculated from the smoothstep function between the left and right point.
-			for (int i = numIntermediateVertices - 1; i >= 1; --i)
-				visibleVertices.AddFirst (new Vector2(left.x + i * vertexGap, Mathf.SmoothStep (left.y, right.y, (float)i / numIntermediateVertices)));
-			
-			// Assign the right point to the left variable for the next point.
-			left = right;
+			firstNode = firstNode.Previous;
 		}
 	}
 
@@ -334,11 +322,20 @@ public class scrLandscapeGenerator : MonoBehaviour
 		/* Create the plane's true vertices by looping through the generated vertex list and duplicating each element,
 		 * then pushing the duplicate through the z by the desired depth of the plane. */
 
-		Vector3[] meshVertices = new Vector3[visibleVertices.Count * 2]; 
-		int[] meshIndices = new int[meshVertices.Length];
+
+		// TODO will need 2 submeshes. meshVertices will contain all visible vertices * 3, and the vertices will be generated so that it first generates the visible vertex, then the visible vertex with its z value set to the z depth, then the visible vertex with its y value set off the screen.
+		// TODO looping through the vertices in the visible vertex list, and keeping track of i such that for each vertex i is at the visible vertex in the vertices array, the top (grass) indices will be i, i + 1; the side (dirt) will be i + 2, i
+
+		Vector3[] meshVertices = new Vector3[visibleVertices.Count * 3];
+
+		int[] grassMeshIndices = new int[visibleVertices.Count * 2];
+		int[] dirtMeshIndices = new int[grassMeshIndices.Length];
+
 		Vector2[] meshUV = new Vector2[meshVertices.Length];
 
 		int i = 0;
+		int j = 0;
+		int u = (Mathf.Abs (visiblePoints.First.Value.x) % (xSpacing * 2)) > 0 ? 1 : 0;
 		LinkedList<Vector2>.Enumerator vertex = visibleVertices.GetEnumerator();
 		while (vertex.MoveNext())
 		{
@@ -347,10 +344,16 @@ public class scrLandscapeGenerator : MonoBehaviour
 			meshVertices[i].y = vertex.Current.y;
 			meshVertices[i].z = 0.0f;	// TODO make this based on current plane. (0.0f)
 
-			// Write the near index.
-			meshIndices[i] = i;
+			// Write the near index. (shared)
+			grassMeshIndices[j] = i;
+			dirtMeshIndices[j] = i + 2;
+
+			// Write the near (bottom) UV.
+			meshUV[i].x = u;
+			meshUV[i].y = 0.0f;
 
 			++i;
+			++j;
 
 			// Write the far vertex.
 			meshVertices[i].x = vertex.Current.x;
@@ -358,14 +361,48 @@ public class scrLandscapeGenerator : MonoBehaviour
 			meshVertices[i].z = 0.0f + zDepth;	// TODO make this based on current plane. (0.0f)
 
 			// Write the far index.
-			meshIndices[i] = i;
+			grassMeshIndices[j] = i;
+
+			// Write the far (top) UV.
+			meshUV[i].x = u;
+			meshUV[i].y = 1.0f;
 
 			++i;
+			++j;
+
+			// Write the low vertex.
+			meshVertices[i].x = vertex.Current.x;
+			meshVertices[i].y = -10.0f;	// TODO make this based on....something?
+			meshVertices[i].z = 0.0f;	// TODO make this based on the current plane. (0.0f)
+
+			// Write the low index.
+			dirtMeshIndices[j - 1] = i - 2;
+
+			// Write the low (top) UV. (the texture will be upside down!)
+			meshUV[i].x = u;
+			meshUV[i].y = 1.0f;
+
+			++i;
+
+			// Move the u to the opposite side.
+			u = u == 0 ? 1 : 0;
 		}
 
+		// Set the vertices.
 		mesh.vertices = meshVertices;
-		mesh.SetTriangleStrip(meshIndices, 0);	// Obsolete function is actually useful!
+
+		// Set the number of submeshes.
+		mesh.subMeshCount = 2;
+
+		// Set the grass and dirt indices.
+		mesh.SetTriangleStrip(grassMeshIndices, 0);	// Obsolete function is actually useful!
+		mesh.SetTriangleStrip(dirtMeshIndices, 1);
+
+		// Set the UVs.
 		mesh.uv = meshUV;
+
+		// Calculate the normals.
+		mesh.RecalculateNormals();
 
 		meshFilter.mesh = mesh;
 
@@ -401,16 +438,21 @@ public class scrLandscapeGenerator : MonoBehaviour
 		if (landscapeChanged)
 			generateMeshData();
 
-		if (debug)
+		if (!debug)
 		{
 			foreach (GameObject g in GameObject.FindGameObjectsWithTag("Respawn"))
 				Destroy (g);
 
 			debugPrefab.transform.localScale = 0.25f * Vector3.one;
-			LinkedList<Vector2>.Enumerator e = visibleVertices.GetEnumerator();
-			while (e.MoveNext())
+//			LinkedList<Vector2>.Enumerator e = visibleVertices.GetEnumerator();
+//			while (e.MoveNext())
+//			{
+//				Instantiate(debugPrefab, new Vector3(e.Current.x, e.Current.y), Quaternion.identity);
+//			}
+
+			foreach (Vector3 v in meshFilter.mesh.vertices)
 			{
-				Instantiate(debugPrefab, new Vector3(e.Current.x, e.Current.y), Quaternion.identity);
+				Instantiate(debugPrefab, v, Quaternion.identity);
 			}
 			
 			debugPrefab.transform.localScale = 0.5f * Vector3.one;
