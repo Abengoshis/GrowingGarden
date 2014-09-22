@@ -6,11 +6,11 @@ public class scrLandscapeGenerator : MonoBehaviour
 {
 	public GameObject debugPrefab;
 	
-	const float xSpacing = 20.0f;	// The regular spacing of points along the x axis.
+	const int xSpacing = 10;	// The regular spacing of points along the x axis. An integer because integers are pretty and simple.
 	const float yHighest = 10.0f;	// The highest value on the y axis that a point can take. The lowest ground value is 0. Below this level, lakes will form..
 
 	const int numIntermediateVertices = 50;	// The number of intermediate vertices between each point. Higher = smoother terrain.
-	const float vertexGap = xSpacing / numIntermediateVertices;	// The x gap between intermediate vertices.
+	const float vertexGap = (float)xSpacing / numIntermediateVertices;	// The x gap between intermediate vertices.
 
 	LinkedList<Vector2> visiblePoints = new LinkedList<Vector2>();	// The currently visible points. This should include the one point before the left of the camera, the one point after the right of the camera, and all points in between.
 	LinkedList<Vector2>.Enumerator firstPoint;	// The first point after illegal points are removed.
@@ -19,6 +19,9 @@ public class scrLandscapeGenerator : MonoBehaviour
 
 	LinkedList<Vector2> visibleVertices = new LinkedList<Vector2>();	// All vertices visible on screen.
 
+	float camLeft;	// The left x of the camera.
+	float camRight;	// The right x of the camera.
+
 
 	/*
 	 * ORDER OF EXECUTION
@@ -26,29 +29,65 @@ public class scrLandscapeGenerator : MonoBehaviour
 	 * 1) Remove points that were previously in the camera view but aren't any more.
 	 * 2) Remove vertices that were previously in the camera view but aren't any more.
 	 * 3) Get the x values at the start and end of the resulting list of points.
-	 * 3) Add new points that have entered the camera view.
-	 * 4) Set the firstPoint and lastPoint enumerators to the positions of the first and last element before points were added.
-	 * 5) If there are points to the left of the firstPoint, generateVerticesLeft.
-	 * 6) If there are points to the right of the lastPoint, generateVerticesRight.
+	 * 4) Add new points that have entered the camera view.
+	 * 5) Set the firstPoint and lastPoint enumerators to the positions of the first and last element before points were added.
+	 * 6) If there are points to the left of the firstPoint, generateVerticesLeft. If there are points to the right of the lastPoint, generateVerticesRight.
 	 *
 	 */
-
 	
 	/// <summary>
-	/// Populates the points list with the points between (and including) the point to the left of the camera frustum and the point to the right of the camera frustum.
+	/// Generates the vertex data for the landscape by generating points between the left and right of the screen, adding and/or deleting points and vertices depending on changes in the camera's position.
 	/// </summary>
-	void populatePointsList()
+	void generateLandscapeData()
 	{
 		// TODO make points based on camera position
 		// TODO make y value based on x value and z value so always generated the same when degenerated and regenerated when the view comes back
+		// TODO as said above, make it so all visiblePoints.Add[First/Last/etc.](...) have a Vector2(x, calcHeight(x, z)) as the parameter. calcY(x) should return the height calculated from the given x and z values 
 
-		// STEP 1:
-		// TODO
+		// STEP 1 & 2 ======================================================================================================================================================
 
-		// STEP 2:
-		// TODO
+		if (visiblePoints.Count > 1)
+		{
+			// Whether a change to the landscape is required.
+			bool updateLandscape = false;
 
-		// STEP 3:
+			// Check whether the second from leftmost visible point is out of the screen. (One point should be out of the screen).
+			if (visiblePoints.First.Next.Value.x < camLeft)
+			{
+				// Delete all but one point before the left of the viewport.
+				while (visiblePoints.First.Next.Value.x < camLeft)
+					visiblePoints.RemoveFirst();
+
+				// Delete all vertices up to the new leftmost point.
+				while (visibleVertices.First.Value.x < visiblePoints.First.Value.x)
+					visibleVertices.RemoveFirst();
+
+				updateLandscape = true;
+			}
+
+			// Check whether the second from rightmost visible point is out of the screen. (One point should be out of the screen).
+			if (visiblePoints.Last.Previous.Value.x > camRight)
+			{
+				// Delete all but one point after the right of the screen.
+				while (visiblePoints.Last.Previous.Value.x > camRight)
+					visiblePoints.RemoveLast();
+
+				// Delete all vertices from the new rightmost point onwards.
+				while (visibleVertices.Last.Value.x > visiblePoints.Last.Value.x)
+					visibleVertices.RemoveLast();
+
+				updateLandscape = true;
+			}
+
+			// If no update to the landscape is needed, exit the function early.
+			if (!updateLandscape)
+				return;
+		}
+
+		Debug.Log ("Updating landscape.");
+
+		// STEP 3 ======================================================================================================================================================
+
 		float oldFirstX = 0.0f;
 		float oldLastX = 0.0f;
 
@@ -62,21 +101,44 @@ public class scrLandscapeGenerator : MonoBehaviour
 		else
 		{
 			allPointsWiped = true;
+
+			Debug.Log ("All points have been wiped.");
 		}
 
-		// STEP 4:
+		// STEP 4 ======================================================================================================================================================
 
-		// THIS PART IS DEBUG  =================================================================================
-		visiblePoints.AddFirst(new Vector2(0.0f, 0.0f));
-
-		for (float x = 0.0f + xSpacing; x < 100.0f; x += xSpacing)
+		// If there are no points left, generate a single point before the left of the screen then generate further points rightwards. I'm right handed so I have a rightwards bias, muahaha.
+		if (allPointsWiped)
 		{
-			// Add the new last node.
-			visiblePoints.AddLast (new Vector2(x, Random.Range (0.0f, yHighest)));
-		}
-		// THIS PART IS DEBUG	=================================================================================
+			// Get the first multiple of xSpacing before the left of the camera. This includes the left of the camera, but is unlikely since, being a floating point number, it will probably have a different fractional part.
+			float nearestMultiple;
 
-		// STEP 5:
+			// Round down to the nearest multiple.
+			if (camLeft >= 0)
+				nearestMultiple = (int)camLeft / xSpacing * xSpacing;
+			else
+				nearestMultiple = ((int)camLeft - xSpacing) / xSpacing * xSpacing;
+
+			Debug.Log (nearestMultiple + " is the nearest multiple of " + xSpacing + " behind " + camLeft);
+
+			// Add the point to the visible points list.
+			visiblePoints.AddFirst(new Vector2(nearestMultiple, calcHeight(nearestMultiple, 0.0f)));
+
+			// Generate all new points rightwards.
+			generatePointsRight();
+		}
+		else
+		{
+			// If the left x of the camera is further to the left than the leftmost visible point, generate points to the left.
+			if (camLeft < visiblePoints.First.Value.x)
+				generatePointsLeft();
+
+			// If the right x of the camera is further to the right than the rightmost visible point, generate points to the right.
+			if (camRight > visiblePoints.Last.Value.x)
+				generatePointsRight();
+		}
+
+		// STEP 5 & 6 ==================================================================================================================================================
 
 		// Get the list's enumerators.
 		firstPoint = visiblePoints.GetEnumerator();
@@ -88,6 +150,9 @@ public class scrLandscapeGenerator : MonoBehaviour
 
 		if (allPointsWiped)
 		{
+			// There are no vertices in the list, so add the first one.
+			visibleVertices.AddLast(lastPoint.Current);
+
 			// If all points are wiped, create all vertices from left to right with the lastPoint starting at the firstPoint.
 			generateVerticesRight();
 		}
@@ -111,11 +176,80 @@ public class scrLandscapeGenerator : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Generates points leftwards until there is a single point outside of the camera view.
+	/// </summary>
+	void generatePointsLeft()
+	{
+		Debug.Log ("Generating points leftwards.");
+
+		// Initialise x as the leftmost point.
+		float x = visiblePoints.First.Value.x;
+
+		// Generate x values leftwards until there is a single point outside of the camera view, giving the impression that terrain continues off the screen.
+		while (x > camLeft)
+		{
+			// Shift x backwards by the regular spacing amount.
+			x -= xSpacing;
+
+			// Add the point before the start of the visible points list.
+			visiblePoints.AddFirst(new Vector2(x, calcHeight(x, 0.0f)));
+		}
+	}
+
+	/// <summary>
+	/// Generates points rightwards until there is a single point outside of the camera view.
+	/// </summary>
+	void generatePointsRight()
+	{
+		Debug.Log ("Generating points rightwards.");
+		
+		// Initialise x as the leftmost point.
+		float x = visiblePoints.Last.Value.x;
+		
+		// Generate x values rightwards until there is a single point outside of the camera view, giving the impression that terrain continues off the screen.
+		while (x < camRight)
+		{
+			// Shift x forwards by the regular spacing amount.
+			x += xSpacing;
+			
+			// Add the point after the end of the visible points list.
+			visiblePoints.AddLast(new Vector2(x, calcHeight(x, 0.0f)));
+		}
+	}
+
+	/// <summary>
 	/// Generates the vertices between the old first and new first points in the points list.
 	/// </summary>
 	void generateVerticesLeft()
 	{
 		Debug.Log ("Generating vertices leftwards.");
+
+		// Get an enumerator at the start of the visible points.
+		LinkedList<Vector2>.Enumerator leftPoint = visiblePoints.GetEnumerator();
+		leftPoint.MoveNext();
+
+		Vector2 left = leftPoint.Current;
+		Vector2 right = firstPoint.Current;
+		
+		// Keep moving the enumerator right until there are no new points.
+		while (leftPoint.Current.x != right.x)
+		{
+			// Advance the enumerator.
+			leftPoint.MoveNext();
+
+			// Set the right value to the current point.
+			right = leftPoint.Current;
+
+			// Add the right point.
+			visibleVertices.AddFirst(right);
+
+			// Create the intermediate vertices from left to right, with their y calculated from the smoothstep function between the left and right point.
+			for (int i = numIntermediateVertices - 1; i >= 1; --i)
+				visibleVertices.AddFirst (new Vector2(left.x + i * vertexGap, Mathf.SmoothStep (left.y, right.y, (float)i / numIntermediateVertices)));
+			
+			// Assign the right point to the left variable for the next point.
+			left = right;
+		}
 	}
 
 	/// <summary>
@@ -126,14 +260,7 @@ public class scrLandscapeGenerator : MonoBehaviour
 		Debug.Log ("Generating vertices rightwards.");
 
 		Vector2 left = lastPoint.Current;
-		Vector2 right;
-
-		// If the camera has moved so far there are no old points, set the last point to the first point of the new points.
-		if (allPointsWiped)
-		{
-			// There are no vertices in the list, so add the first one.
-			visibleVertices.AddLast(left);
-		}
+		Vector2 right;	// Doesn't need to be defined, as the enumerator can travel to the end until null.
 
 		// Keep moving right until there are no new points.
 		while (lastPoint.MoveNext())
@@ -153,32 +280,55 @@ public class scrLandscapeGenerator : MonoBehaviour
 		}
 	}
 
+	/// <summary>
+	/// Calculates the y height at the given x and z coordinates using some kind of noise generator or something thats constant.
+	/// </summary>
+	/// <returns>The height of the point.</returns>
+	/// <param name="x">The x coordinate.</param>
+	/// <param name="z">The z coordinate.</param> 
+	float calcHeight(float x, float z)
+	{
+		// TODO actually do this properly, and change the summary above.
+		return Random.Range (0.0f, yHighest);
+	}
+
 	// Use this for initialization
 	void Start ()
 	{
-		populatePointsList();
+		camLeft = Camera.main.ViewportToWorldPoint(new Vector3(0.0f, 0.5f, -Camera.main.transform.position.z)).x;
+		camRight = Camera.main.ViewportToWorldPoint(new Vector3(1.0f, 0.5f, -Camera.main.transform.position.z)).x;
+
+		generateLandscapeData();
+
+	}
+	
+	// Update is called once per frame
+	void Update ()
+	{
+		// Update the left and right x values of the camera viewport at the right z value, in the vertical centre.
+		camLeft = Camera.main.ViewportToWorldPoint(new Vector3(0.0f, 0.5f, -Camera.main.transform.position.z)).x;
+		camRight = Camera.main.ViewportToWorldPoint(new Vector3(1.0f, 0.5f, -Camera.main.transform.position.z)).x;
+
+		generateLandscapeData();
 
 		// DEBUG
+		foreach (GameObject g in GameObject.FindGameObjectsWithTag("Respawn"))
+			Destroy (g);
+
 		debugPrefab.transform.localScale = 0.25f * Vector3.one;
 		LinkedList<Vector2>.Enumerator e = visibleVertices.GetEnumerator();
 		while (e.MoveNext())
 		{
 			Instantiate(debugPrefab, new Vector3(e.Current.x, e.Current.y), Quaternion.identity);
 		}
-
+		
 		debugPrefab.transform.localScale = 0.5f * Vector3.one;
-
+		
 		LinkedList<Vector2>.Enumerator e2 = visiblePoints.GetEnumerator();
 		while (e2.MoveNext())
 		{
 			Instantiate(debugPrefab, new Vector3(e2.Current.x, e2.Current.y), Quaternion.identity);
 		}
-	}
-	
-	// Update is called once per frame
-	void Update ()
-	{
-	
 	}
 
 
