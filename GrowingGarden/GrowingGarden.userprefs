@@ -1,8 +1,8 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="Assets\scrLandscapeGenerator.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets\Scripts\scrLandscapeGenerator.cs">
     <Files>
-      <File FileName="Assets\scrLandscapeGenerator.cs" Line="82" Column="168" />
+      <File FileName="Assets\Scripts\scrLandscapeGenerator.cs" Line="344" Column="4" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

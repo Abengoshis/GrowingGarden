@@ -4,12 +4,19 @@ using System.Collections.Generic;
 
 public class scrLandscapeGenerator : MonoBehaviour
 {
+	#region DEBUG
+
+	bool debug = true;
 	public GameObject debugPrefab;
-	
+
+	#endregion
+
+	#region 2D Vertex Generation Variables
+
 	const int xSpacing = 10;	// The regular spacing of points along the x axis. An integer because integers are pretty and simple.
 	const float yHighest = 10.0f;	// The highest value on the y axis that a point can take. The lowest ground value is 0. Below this level, lakes will form..
 
-	const int numIntermediateVertices = 50;	// The number of intermediate vertices between each point. Higher = smoother terrain.
+	const int numIntermediateVertices = 10;	// The number of intermediate vertices between each point. Higher = smoother terrain.
 	const float vertexGap = (float)xSpacing / numIntermediateVertices;	// The x gap between intermediate vertices.
 
 	LinkedList<Vector2> visiblePoints = new LinkedList<Vector2>();	// The currently visible points. This should include the one point before the left of the camera, the one point after the right of the camera, and all points in between.
@@ -19,9 +26,22 @@ public class scrLandscapeGenerator : MonoBehaviour
 
 	LinkedList<Vector2> visibleVertices = new LinkedList<Vector2>();	// All vertices visible on screen.
 
+	#endregion
+
+	#region 3D Mesh Generation Variables
+	
+	const float zDepth = 5.0f;	// The depth of a landscape plane.
+	MeshFilter meshFilter;	// The mesh filter component of the generator's gameobject.
+
+	#endregion
+
+	bool landscapeChanged = false;	// Whether or not the landscape points have changed in this update.
+
 	float camLeft;	// The left x of the camera.
 	float camRight;	// The right x of the camera.
 
+
+	#region Vertex Generation
 
 	/*
 	 * ORDER OF EXECUTION
@@ -48,8 +68,8 @@ public class scrLandscapeGenerator : MonoBehaviour
 
 		if (visiblePoints.Count > 1)
 		{
-			// Whether a change to the landscape is required.
-			bool updateLandscape = false;
+			// Reset the landscape changed flag.
+			landscapeChanged = false;
 
 			// Check whether the second from leftmost visible point is out of the screen. (One point should be out of the screen).
 			if (visiblePoints.First.Next.Value.x < camLeft)
@@ -62,7 +82,7 @@ public class scrLandscapeGenerator : MonoBehaviour
 				while (visibleVertices.First.Value.x < visiblePoints.First.Value.x)
 					visibleVertices.RemoveFirst();
 
-				updateLandscape = true;
+				landscapeChanged = true;
 			}
 
 			// Check whether the second from rightmost visible point is out of the screen. (One point should be out of the screen).
@@ -76,15 +96,15 @@ public class scrLandscapeGenerator : MonoBehaviour
 				while (visibleVertices.Last.Value.x > visiblePoints.Last.Value.x)
 					visibleVertices.RemoveLast();
 
-				updateLandscape = true;
+				landscapeChanged = true;
 			}
 
 			// An update to the landscape is needed if the first and last points aren't outside the camera view. I could combine this with the next if statement but CLARITY YO.
 			if (visiblePoints.First.Value.x > camLeft || visiblePoints.Last.Value.x < camRight)
-				updateLandscape = true;
+				landscapeChanged = true;
 
 			// If no update to the landscape is needed, exit the function early.
-			if (!updateLandscape)
+			if (!landscapeChanged)
 				return;
 		}
 
@@ -134,11 +154,11 @@ public class scrLandscapeGenerator : MonoBehaviour
 		else
 		{
 			// If the left x of the camera is further to the left than the leftmost visible point, generate points to the left.
-			if (camLeft < visiblePoints.First.Value.x)
+			if (visiblePoints.First.Value.x > camLeft)
 				generatePointsLeft();
 
 			// If the right x of the camera is further to the right than the rightmost visible point, generate points to the right.
-			if (camRight > visiblePoints.Last.Value.x)
+			if (visiblePoints.Last.Value.x < camRight)
 				generatePointsRight();
 		}
 
@@ -198,6 +218,8 @@ public class scrLandscapeGenerator : MonoBehaviour
 			// Add the point before the start of the visible points list.
 			visiblePoints.AddFirst(new Vector2(x, calcHeight(x, 0.0f)));
 		}
+
+		landscapeChanged = true;
 	}
 
 	/// <summary>
@@ -219,6 +241,8 @@ public class scrLandscapeGenerator : MonoBehaviour
 			// Add the point after the end of the visible points list.
 			visiblePoints.AddLast(new Vector2(x, calcHeight(x, 0.0f)));
 		}
+
+		landscapeChanged = true;
 	}
 
 	/// <summary>
@@ -296,13 +320,70 @@ public class scrLandscapeGenerator : MonoBehaviour
 		return Random.Range (0.0f, yHighest);
 	}
 
+	#endregion
+
+	#region Mesh Generation
+
+	void generateMeshData()
+	{
+		Debug.Log ("Updating mesh data.");
+
+		// Create a new mesh.
+		Mesh mesh = new Mesh();
+
+		/* Create the plane's true vertices by looping through the generated vertex list and duplicating each element,
+		 * then pushing the duplicate through the z by the desired depth of the plane. */
+
+		Vector3[] meshVertices = new Vector3[visibleVertices.Count * 2]; 
+		int[] meshIndices = new int[meshVertices.Length];
+		Vector2[] meshUV = new Vector2[meshVertices.Length];
+
+		int i = 0;
+		LinkedList<Vector2>.Enumerator vertex = visibleVertices.GetEnumerator();
+		while (vertex.MoveNext())
+		{
+			// Write the near vertex.
+			meshVertices[i].x = vertex.Current.x;
+			meshVertices[i].y = vertex.Current.y;
+			meshVertices[i].z = 0.0f;	// TODO make this based on current plane. (0.0f)
+
+			// Write the near index.
+			meshIndices[i] = i;
+
+			++i;
+
+			// Write the far vertex.
+			meshVertices[i].x = vertex.Current.x;
+			meshVertices[i].y = vertex.Current.y;
+			meshVertices[i].z = 0.0f + zDepth;	// TODO make this based on current plane. (0.0f)
+
+			// Write the far index.
+			meshIndices[i] = i;
+
+			++i;
+		}
+
+		mesh.vertices = meshVertices;
+		mesh.SetTriangleStrip(meshIndices, 0);	// Obsolete function is actually useful!
+		mesh.uv = meshUV;
+
+		meshFilter.mesh = mesh;
+
+		
+	}
+
+	#endregion
+
 	// Use this for initialization
 	void Start ()
 	{
+		meshFilter = GetComponent<MeshFilter>();
+
 		camLeft = Camera.main.ViewportToWorldPoint(new Vector3(0.0f, 0.5f, -Camera.main.transform.position.z)).x;
 		camRight = Camera.main.ViewportToWorldPoint(new Vector3(1.0f, 0.5f, -Camera.main.transform.position.z)).x;
 
 		generateLandscapeData();
+		generateMeshData();
 
 	}
 	
@@ -313,25 +394,32 @@ public class scrLandscapeGenerator : MonoBehaviour
 		camLeft = Camera.main.ViewportToWorldPoint(new Vector3(0.0f, 0.5f, -Camera.main.transform.position.z)).x;
 		camRight = Camera.main.ViewportToWorldPoint(new Vector3(1.0f, 0.5f, -Camera.main.transform.position.z)).x;
 
+		// Generate the landscape's points.
 		generateLandscapeData();
 
-		// DEBUG
-		foreach (GameObject g in GameObject.FindGameObjectsWithTag("Respawn"))
-			Destroy (g);
+		// If the landscape data has changed, update the mesh data.
+		if (landscapeChanged)
+			generateMeshData();
 
-		debugPrefab.transform.localScale = 0.25f * Vector3.one;
-		LinkedList<Vector2>.Enumerator e = visibleVertices.GetEnumerator();
-		while (e.MoveNext())
+		if (debug)
 		{
-			Instantiate(debugPrefab, new Vector3(e.Current.x, e.Current.y), Quaternion.identity);
-		}
-		
-		debugPrefab.transform.localScale = 0.5f * Vector3.one;
-		
-		LinkedList<Vector2>.Enumerator e2 = visiblePoints.GetEnumerator();
-		while (e2.MoveNext())
-		{
-			Instantiate(debugPrefab, new Vector3(e2.Current.x, e2.Current.y), Quaternion.identity);
+			foreach (GameObject g in GameObject.FindGameObjectsWithTag("Respawn"))
+				Destroy (g);
+
+			debugPrefab.transform.localScale = 0.25f * Vector3.one;
+			LinkedList<Vector2>.Enumerator e = visibleVertices.GetEnumerator();
+			while (e.MoveNext())
+			{
+				Instantiate(debugPrefab, new Vector3(e.Current.x, e.Current.y), Quaternion.identity);
+			}
+			
+			debugPrefab.transform.localScale = 0.5f * Vector3.one;
+			
+			LinkedList<Vector2>.Enumerator e2 = visiblePoints.GetEnumerator();
+			while (e2.MoveNext())
+			{
+				Instantiate(debugPrefab, new Vector3(e2.Current.x, e2.Current.y), Quaternion.identity);
+			}
 		}
 	}
 
