@@ -79,6 +79,10 @@ public class scrLandscapeGenerator : MonoBehaviour
 				updateLandscape = true;
 			}
 
+			// An update to the landscape is needed if the first and last points aren't outside the camera view. I could combine this with the next if statement but CLARITY YO.
+			if (visiblePoints.First.Value.x > camLeft || visiblePoints.Last.Value.x < camRight)
+				updateLandscape = true;
+
 			// If no update to the landscape is needed, exit the function early.
 			if (!updateLandscape)
 				return;
