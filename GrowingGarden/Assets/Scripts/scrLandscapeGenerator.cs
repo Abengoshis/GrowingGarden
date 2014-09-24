@@ -416,8 +416,8 @@ public class scrLandscapeGenerator : MonoBehaviour
 	{
 		meshFilter = GetComponent<MeshFilter>();
 
-		camLeft = Camera.main.ViewportToWorldPoint(new Vector3(0.0f, 0.5f, -Camera.main.transform.position.z)).x;
-		camRight = Camera.main.ViewportToWorldPoint(new Vector3(1.0f, 0.5f, -Camera.main.transform.position.z)).x;
+		camLeft = Camera.main.ViewportToWorldPoint(new Vector3(-0.5f, 0.5f,  -Camera.main.transform.position.z)).x;
+		camRight = Camera.main.ViewportToWorldPoint(new Vector3(1.5f, 0.5f, -Camera.main.transform.position.z)).x;
 
 		generateLandscapeData();
 		generateMeshData();
@@ -428,8 +428,8 @@ public class scrLandscapeGenerator : MonoBehaviour
 	void Update ()
 	{
 		// Update the left and right x values of the camera viewport at the right z value, in the vertical centre.
-		camLeft = Camera.main.ViewportToWorldPoint(new Vector3(0.0f, 0.5f, -Camera.main.transform.position.z)).x;
-		camRight = Camera.main.ViewportToWorldPoint(new Vector3(1.0f, 0.5f, -Camera.main.transform.position.z)).x;
+		camLeft = Camera.main.ViewportToWorldPoint(new Vector3(-0.5f, 0.5f, -Camera.main.transform.position.z)).x;
+		camRight = Camera.main.ViewportToWorldPoint(new Vector3(1.5f, 0.5f, -Camera.main.transform.position.z)).x;
 
 		// Generate the landscape's points.
 		generateLandscapeData();
