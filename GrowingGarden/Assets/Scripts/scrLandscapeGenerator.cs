@@ -13,6 +13,7 @@ public class scrLandscapeGenerator : MonoBehaviour
 
 	#region 2D Vertex Generation Variables
 
+	const float eccentricity = 1.0f;	// The bumpiness of the landscape between 0.0 and 1.0 where 0.0 is completely flat.
 	const int xSpacing = 10;	// The regular spacing of points along the x axis. An integer because integers are pretty and simple.
 	const float yHighest = 10.0f;	// The highest value on the y axis that a point can take. The lowest ground value is 0. Below this level, lakes will form..
 
@@ -297,15 +298,15 @@ public class scrLandscapeGenerator : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Calculates the y height at the given x and z coordinates using some kind of noise generator or something thats constant.
+	/// Calculates the y height at the given x and z coordinates using perlin noise.
 	/// </summary>
 	/// <returns>The height of the point.</returns>
 	/// <param name="x">The x coordinate.</param>
 	/// <param name="z">The z coordinate.</param> 
 	float calcHeight(float x, float z)
 	{
-		// TODO actually do this properly, and change the summary above.
-		return Random.Range (0.0f, yHighest);
+		// Perlin noise is always 0 on integers, so add a fractional part between 0.0 and 0.5 to give less or more eccentricity.
+		return Mathf.PerlinNoise(x + eccentricity * 0.5f, z + eccentricity * 0.5f) * yHighest;
 	}
 
 	#endregion
