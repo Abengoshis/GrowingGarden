@@ -8,6 +8,7 @@ public class scrLandscapeGenerator : MonoBehaviour
 
 	bool debug = true;
 	public GameObject debugPrefab;
+	public GameObject flowerManager;
 
 	#endregion
 
@@ -40,6 +41,7 @@ public class scrLandscapeGenerator : MonoBehaviour
 
 	float camLeft;	// The left x of the camera.
 	float camRight;	// The right x of the camera.
+	
 
 
 	#region Vertex Generation
@@ -198,6 +200,7 @@ public class scrLandscapeGenerator : MonoBehaviour
 			if (oldLastX != visiblePoints.Last.Value.x)
 				generateVerticesRight();
 		}
+		flowerManager.GetComponent<scrFlowerManager>().StartDownloading(camLeft,camRight);
 	}
 
 	/// <summary>
