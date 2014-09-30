@@ -4,13 +4,13 @@ using System.Collections.Generic;
 
 public class scrFlowerManager : MonoBehaviour {
 
-	const float FLOWER_SPACING = 0.5f;
+	const float FLOWER_SPACING = 1.0f;
 	private WWW w;
-	List<GameObject> flowerObjects;
-	bool hasDownloaded;
-	private float camLeft;
-	private float camRight;
-	public GameObject basicFlower;
+	
+	public GameObject flowerPrefab;
+
+	bool downloading;
+	List<GameObject> flowerObjects = new List<GameObject>();	// Array of 3 lists of flower objects (one for each plane).
 
 	// Use this for initialization
 	void Start () {
@@ -19,73 +19,73 @@ public class scrFlowerManager : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-		if(!hasDownloaded)
+
+		if (downloading)
 		{
-			StartCoroutine(DownloadFlowerData(camLeft,camRight));
+			if(w.error != null)
+			{
+				Debug.Log("Failed to download data to Hitpoint Server!");
+			}
+			else if (w.isDone)
+			{
+				Debug.Log("Successfully downloaded data to Hitpoint Server!");
+
+				// Clear the current flowers.
+				for (int i = flowerObjects.Count - 1; i >= 0; --i)
+				{
+					Destroy (flowerObjects[i]);
+					flowerObjects.RemoveAt (i);
+				}
+
+				//Comes in the format: x,plane,team; x,plane,team; etc.
+				string rawFlowerData = w.text;
+				string[] rawFlowersSeperated = rawFlowerData.Split(';');
+				for (int i = 0; i < rawFlowersSeperated.Length - 1;i++)
+				{
+					//Take apart the current flower:
+					string[] flowerString = rawFlowersSeperated[i].Split(',');
+					
+					int[] flower = new int[flowerString.Length];
+					
+					for(int j = 0; j < 3; j++)
+					{
+						Debug.Log(flowerString[j].ToString());
+						flower[j] = int.Parse(flowerString[j]);
+					}
+
+					// TODO remove this 
+					flower[1] = 2;
+
+					// Raycast to get the y value. Since in future there will be more planes which depend on previous planes, I can't simply request the y position from an algorithm.. 
+					RaycastHit hit;
+					Vector3 flowerPosition = new Vector3(flower[0] * FLOWER_SPACING, 20.0f, flower[1]);
+					if (Physics.Raycast (flowerPosition, Vector3.down, out hit, 100.0f, 1 << LayerMask.NameToLayer("Landscape")))
+						flowerPosition.y = hit.point.y + flowerPrefab.transform.localScale.y * 0.5f;
+					else
+						Debug.Log ("Something went wrong and the flower raycast didn't hit the landscape.");
+
+					// Add a flower object.
+					flowerObjects.Add (GameObject.Instantiate(flowerPrefab, flowerPosition, Quaternion.identity) as GameObject);
+				}
+
+				
+				downloading = false;
+			}
 		}
+
 	}
 
-	public void StartDownloading(float left, float right){
-		camLeft = left;
-		camRight = right;
-		hasDownloaded = false;
-	}
-
-	IEnumerator DownloadFlowerData(float left, float right)
+	public void DownloadFlowerData(float left, float right)
 	{
-		//List for storing processed flowers from the server:
-		List<Vector3> processedFlowerData;
-		processedFlowerData = new List<Vector3>();
+		Debug.Log ("Sending download request to Hitpoint Server!");
+
 		//To get data http://www.hitpointgames.com/AddFlower.php?GetFlower=4;7
 		//Where 4 and 7 are the left and right of the screen, respectively...
 		w = new WWW("http://www.hitpointgames.com/AddFlower.php?GetFlower="
 		            +(int)(left/FLOWER_SPACING)+";"
 		            +Mathf.CeilToInt(right/FLOWER_SPACING));
 
-		while(!w.isDone)
-		{
-		yield return new WaitForSeconds(0.1f);
-		}
-
-		if(w.error != null)
-		{
-			Debug.Log("Failed to download data to Hitpoint Server!");
-		}
-		else
-		{
-			Debug.Log("Successfully downloaded data to Hitpoint Server!");
-			//Comes in the format: x,plane,team; x,plane,team; etc.
-			string rawFlowerData = w.text;
-			string[] rawFlowersSeperated = rawFlowerData.Split(';');
-			for (int i = 0; i < rawFlowersSeperated.Length - 1;i++)
-			{
-				//Take apart the current flower:
-				string[] myFlowerString = rawFlowersSeperated[i].Split(',');
-
-				int[] myFlower = new int[myFlowerString.Length];
-
-				for(int j = 0; j < 3; j++)
-				{
-					Debug.Log(myFlowerString[j].ToString());
-					myFlower[j] = int.Parse(myFlowerString[j]);
-				}
-
-				processedFlowerData.Add(new Vector3(myFlower[0] * FLOWER_SPACING,myFlower[1],myFlower[2]));
-			}
-
-			if(flowerObjects.ToArray().Length > 0)
-			{
-			flowerObjects.Clear();
-			}
-			for(int i = 0; i < processedFlowerData.ToArray().Length; i++)
-			{
-				GameObject myFlower = (GameObject)GameObject.Instantiate(basicFlower,processedFlowerData[i],Quaternion.identity);
-				flowerObjects.Add(myFlower);
-			}
-
-			hasDownloaded = true;
-		}
-
+		downloading = true;
 	}
 
 	bool UploadFlowerData(float worldLocation,int plane,int team)

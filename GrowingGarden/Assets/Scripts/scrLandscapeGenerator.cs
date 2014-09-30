@@ -200,7 +200,7 @@ public class scrLandscapeGenerator : MonoBehaviour
 			if (oldLastX != visiblePoints.Last.Value.x)
 				generateVerticesRight();
 		}
-		flowerManager.GetComponent<scrFlowerManager>().StartDownloading(camLeft,camRight);
+
 	}
 
 	/// <summary>
@@ -408,9 +408,9 @@ public class scrLandscapeGenerator : MonoBehaviour
 		// Calculate the normals.
 		mesh.RecalculateNormals();
 
+		// Set the meshfilter and meshcollider meshes to the generated mesh.
 		meshFilter.mesh = mesh;
-
-		
+		GetComponent<MeshCollider>().sharedMesh = mesh;
 	}
 
 	#endregion
@@ -425,6 +425,7 @@ public class scrLandscapeGenerator : MonoBehaviour
 
 		generateLandscapeData();
 		generateMeshData();
+		flowerManager.GetComponent<scrFlowerManager>().DownloadFlowerData(camLeft,camRight);
 
 	}
 	
@@ -438,9 +439,13 @@ public class scrLandscapeGenerator : MonoBehaviour
 		// Generate the landscape's points.
 		generateLandscapeData();
 
-		// If the landscape data has changed, update the mesh data.
+		// If the landscape data has changed, update the mesh data and generate flowers.
 		if (landscapeChanged)
+		{
 			generateMeshData();
+
+			flowerManager.GetComponent<scrFlowerManager>().DownloadFlowerData(camLeft,camRight);
+		}
 
 		if (!debug)
 		{
