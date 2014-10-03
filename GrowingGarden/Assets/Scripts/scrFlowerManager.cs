@@ -12,6 +12,27 @@ public class scrFlowerManager : MonoBehaviour {
 	bool downloading;
 	List<GameObject> flowerObjects = new List<GameObject>();	// Array of 3 lists of flower objects (one for each plane).
 
+	//FLOWER MATERIALS:
+	public Material redFlowerHead;
+	public Material blueFlowerHead;
+	public Material pinkFlowerHead;
+	public Material purpleFlowerHead;
+	public Material yellowFlowerHead;
+	public Material orangeFlowerHead;
+	public Material whiteFlowerHead;
+
+	public Material stemNumber0;
+	public Material stemNumber1;
+	public Material stemNumber2;
+	public Material stemNumber3;
+	public Material stemNumber4;
+	public Material stemNumber5;
+	public Material stemNumber6;
+	public Material stemNumber7;
+	public Material stemNumber8;
+	public Material stemNumber9;
+
+
 	// Use this for initialization
 	void Start () {
 
@@ -65,7 +86,67 @@ public class scrFlowerManager : MonoBehaviour {
 						Debug.Log ("Something went wrong and the flower raycast didn't hit the landscape.");
 
 					// Add a flower object.
-					flowerObjects.Add (GameObject.Instantiate(flowerPrefab, flowerPosition, Quaternion.identity) as GameObject);
+					GameObject myFlower = GameObject.Instantiate(flowerPrefab, flowerPosition, Quaternion.identity) as GameObject;
+					flowerObjects.Add (myFlower);
+					switch (flower[2])
+					{
+					case 0: //RED
+						myFlower.GetComponent<scrFlowerScript>().ChooseFlowerType(redFlowerHead,0);
+						break;
+					case 1: //BLUE
+						myFlower.GetComponent<scrFlowerScript>().ChooseFlowerType(blueFlowerHead,1);
+						break;
+					case 2: //YELLOW
+						myFlower.GetComponent<scrFlowerScript>().ChooseFlowerType(yellowFlowerHead,2);
+						break;
+					case 3: //WHITE
+						myFlower.GetComponent<scrFlowerScript>().ChooseFlowerType(whiteFlowerHead,3);
+						break;
+					case 4: //PINK
+						myFlower.GetComponent<scrFlowerScript>().ChooseFlowerType(pinkFlowerHead,4);
+						break;
+					case 5: //PURPLE
+						myFlower.GetComponent<scrFlowerScript>().ChooseFlowerType(purpleFlowerHead,5);
+						break;
+					case 6: //ORANGE
+						myFlower.GetComponent<scrFlowerScript>().ChooseFlowerType(orangeFlowerHead,6);
+						break;
+					}
+
+					Random.seed = flower[1] + flower[0];
+					switch (Random.Range(0,9))
+					{
+					case 0: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber0);
+						break;
+					case 1: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber1);
+						break;
+					case 2: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber2);
+						break;
+					case 3: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber3);
+						break;
+					case 4: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber4);
+						break;
+					case 5: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber5);
+						break;
+					case 6: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber6);
+						break;
+					case 7: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber7);
+						break;
+					case 8: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber8);
+						break;
+					case 9: 
+						myFlower.GetComponent<scrFlowerScript>().ChooseStemType(stemNumber9);
+						break;
+					}
 				}
 
 				
